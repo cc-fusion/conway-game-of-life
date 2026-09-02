@@ -176,7 +176,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
     }
     
     bool isEmpty() {
-        if (this->depth == 1) return this->nw_leaf && this->ne_leaf && this->sw_leaf && this->se_leaf;
+        if (this->depth == 1) return !(this->nw_leaf || this->ne_leaf || this->sw_leaf || this->se_leaf);
         return this->nw->isEmpty() && this->ne->isEmpty() && this->sw->isEmpty() && this->se->isEmpty();
     }
     
@@ -295,10 +295,11 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
         }
     }
     std::shared_ptr<QuadTree> evolve() {
-        if (this->isBorderEmpty()) {
-            return this->trim()->addPadding()->evolve();
+        auto trimmed {this->trim()};
+        if (!this->isBorderEmpty()) {
+            return trimmed->addPadding()->evolve();
         }
-        return this->trim()->addPadding()->evolveCenter();
+        return trimmed->addPadding()->evolveCenter();
     }
 };
 
