@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string>
-//#include <cassert>
+#include <cassert>
 #include <memory>
 #include <vector>
 #include <array>
@@ -8,13 +8,6 @@
 #include <cmath>
 #include <unordered_map>
 #include <functional>
-
-// cassert does not work on online compiler
-void assert(bool condition) {
-    if (!condition) {
-        std::cout << "ASSERTION FAILED" << std::endl;
-    }
-}
 
 /*
   n
@@ -26,7 +19,7 @@ w # e
 
 class QuadTree;
 std::shared_ptr<QuadTree> createEmptyQuadTree (int depth);
-std::shared_ptr<QuadTree> createQuadTree(std::shared_ptr<QuadTree> nw, std::shared_ptr<QuadTree> ne, std::shared_ptr<QuadTree> sw, std::shared_ptr<QuadTree> se);
+std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se);
 std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se);
 
 /* ---------- Memoization ---------- */
@@ -265,7 +258,7 @@ class QuadTree {
     }
 };
 
-std::shared_ptr<QuadTree> createQuadTree(std::shared_ptr<QuadTree> nw, std::shared_ptr<QuadTree> ne, std::shared_ptr<QuadTree> sw, std::shared_ptr<QuadTree> se) {
+std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
     QuadTreeKey treeKey {nw.get(), ne.get(), sw.get(), se.get(), nw->depth};
     int hashedKey {static_cast<int>(hashKey(treeKey))};
     
@@ -319,44 +312,33 @@ std::vector<std::vector<bool>> join2x2Arrays(std::vector<std::vector<bool>>& nw,
 
 /* ---------- Array <--> quadtree conversions ---------- */
 
-void squareArrayToQuadTreeHelper(const std::vector<std::vector<bool>>& grid, std::shared_ptr<QuadTree> subtree, int minX, int minY, int maxX, int maxY) {
+std::shared_ptr<QuadTree> squareArrayToQuadTreeHelper(const std::vector<std::vector<bool>>& grid, int minX, int minY, int maxX, int maxY) {
     int size = maxX - minX;
     if (size == 2) {
-        subtree->nw_leaf = grid[minX][minY];
-        subtree->ne_leaf = grid[minX+1][minY];
-        subtree->sw_leaf = grid[minX][minY+1];
-        subtree->se_leaf = grid[minX+1][minY+1];
-        return;
+        return createQuadTree(
+            grid[minX][minY],   grid[minX+1][minY], 
+            grid[minX][minY+1], grid[minX+1][minY+1]
+        );
     }
     
     int midX = minX + size/2;
     int midY = minY + size/2;
-    squareArrayToQuadTreeHelper(grid, subtree->nw, minX, minY, midX, midY);
-    squareArrayToQuadTreeHelper(grid, subtree->ne, midX, minY, maxX, midY);
-    squareArrayToQuadTreeHelper(grid, subtree->sw, minX, midY, midX, maxY);
-    squareArrayToQuadTreeHelper(grid, subtree->se, midX, midY, maxX, maxY);
+    return createQuadTree(
+        squareArrayToQuadTreeHelper(grid, minX, minY, midX, midY),
+        squareArrayToQuadTreeHelper(grid, midX, minY, maxX, midY),
+        squareArrayToQuadTreeHelper(grid, minX, midY, midX, maxY),
+        squareArrayToQuadTreeHelper(grid, midX, midY, maxX, maxY)
+    );
 }
+
 std::shared_ptr<QuadTree> squareArrayToQuadTree(const std::vector<std::vector<bool>>& grid) {
     assert(grid.size() > 0 && "Grid is empty");
     assert(grid.size() == grid[0].size() && "Grid needs to be square");
     assert(isPowerOfTwo(grid.size()) && "Grid size needs to be a power of 2");
     // todo: handle 1x1, 2x2
     int size {static_cast<int>(grid.size())};
-    int depth {static_cast<int>(std::log2(size))};
     
-    /*
-    Create empty quadtrees
-    splits grid into 4
-    if base case:
-        fill quadtrees
-    else:
-        recurse
-    */
-    
-    auto tree {createEmptyQuadTree(depth)};
-    squareArrayToQuadTreeHelper(grid, tree, 0, 0, size, size); // modify tree in place
-    
-    return tree;
+    return squareArrayToQuadTreeHelper(grid, 0, 0, size, size);
 }
 
 std::vector<std::vector<bool>> quadTreeToArray(const std::shared_ptr<QuadTree> quadTree) {
@@ -435,9 +417,5 @@ int main() {
         tree = tree->evolve();
         printQuadTree(tree);
     }
-    /*tree = tree->addPadding()->evolveCenter();
-    printQuadTree(tree);
-    tree = tree->evolveCenter();
-    printQuadTree(tree);*/
-    return 1;
+    return 0;
 }
