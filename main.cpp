@@ -8,6 +8,7 @@
 #include <cmath>
 #include <unordered_map>
 #include <functional>
+#include <chrono>
 
 /*
   n
@@ -54,6 +55,28 @@ std::unordered_map<int, std::shared_ptr<QuadTree>> evolutionCache;
 std::unordered_map<int, std::shared_ptr<QuadTree>> treeCache;
 
 std::vector<std::shared_ptr<QuadTree>> leafCache;
+
+/* ---------- Timer ---------- */
+
+// https://www.learncpp.com/cpp-tutorial/timing-your-code/
+
+class Timer {
+private:
+	// Type aliases to make accessing nested type easier
+	using Clock = std::chrono::steady_clock;
+	using Second = std::chrono::duration<double, std::ratio<1> >;
+
+	std::chrono::time_point<Clock> m_beg { Clock::now() };
+
+public:
+	void reset() {
+		m_beg = Clock::now();
+	}
+
+	double elapsed() const {
+		return std::chrono::duration_cast<Second>(Clock::now() - m_beg).count();
+	}
+};
 
 /* ---------- Quadtrees ---------- */
 
@@ -258,7 +281,7 @@ class QuadTree {
     }
 };
 
-std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
+/*std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
     QuadTreeKey treeKey {nw.get(), ne.get(), sw.get(), se.get(), nw->depth};
     int hashedKey {static_cast<int>(hashKey(treeKey))};
     
@@ -271,6 +294,17 @@ std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se) {
     int hashedKey {nw + 2*ne + 4*sw + 8*se};
     
     return leafCache[hashedKey];
+}
+*/
+/* ---------- Quadtrees (inefficient, used for comparison) ---------- */
+
+
+std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
+    return std::make_shared<QuadTree>(nw, ne, sw, se);
+}
+
+std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se) {
+    return std::make_shared<QuadTree>(nw, ne, sw, se);
 }
 
 /* ---------- Helper Functions ---------- */
@@ -412,10 +446,13 @@ int main() {
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     }};
     auto tree = squareArrayToQuadTree(array);
-    printQuadTree(tree);
-    for (int i = 0; i < 10; i++) {
+    Timer timer {};
+    timer.reset();
+    //printQuadTree(tree);
+    for (int i = 0; i < 1000; i++) {
         tree = tree->evolve();
-        printQuadTree(tree);
+        //printQuadTree(tree);
     }
+    std::cout << (timer.elapsed()*1000) << "ms elapsed";
     return 0;
 }
