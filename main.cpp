@@ -31,34 +31,33 @@ struct QuadTreeKey {
     QuadTree* sw;
     QuadTree* se;
     int depth;
-};
-
-size_t hashKey(const QuadTreeKey& k) {
-    // magic function that does something and somehow works
-    size_t seed = 0;
     
-    auto hash_combine = [&](size_t h) {
-        seed ^= h + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    };
-
-    hash_combine(std::hash<int>{}(k.depth));
-    hash_combine(std::hash<const QuadTree*>{}(k.nw));
-    hash_combine(std::hash<const QuadTree*>{}(k.ne));
-    hash_combine(std::hash<const QuadTree*>{}(k.sw));
-    hash_combine(std::hash<const QuadTree*>{}(k.se));
-
-    return seed;
+    bool operator==(const QuadTreeKey& other) const {
+        return depth == other.depth && nw == other.nw && ne == other.ne && sw == other.sw && se == other.se;
+    }
 };
 
 struct QuadTreeHash {
     size_t operator()(const QuadTreeKey& k) const {
-        return hashKey(k);
+        size_t seed = 0;
+    
+        auto hash_combine = [&](size_t h) {
+            seed ^= h + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        };
+    
+        hash_combine(std::hash<int>{}(k.depth));
+        hash_combine(std::hash<const QuadTree*>{}(k.nw));
+        hash_combine(std::hash<const QuadTree*>{}(k.ne));
+        hash_combine(std::hash<const QuadTree*>{}(k.sw));
+        hash_combine(std::hash<const QuadTree*>{}(k.se));
+    
+        return seed;
     }
 };
 
 std::unordered_map<QuadTreeKey, std::shared_ptr<QuadTree>, QuadTreeHash> evolutionCache;
 
-std::unordered_map<int, std::shared_ptr<QuadTree>> treeCache;
+std::unordered_map<QuadTreeKey, std::shared_ptr<QuadTree>, QuadTreeHash> treeCache;
 
 std::vector<std::shared_ptr<QuadTree>> leafCache;
 
@@ -187,6 +186,9 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
     }
     
     std::shared_ptr<QuadTree> trim() {
+        if (this->depth <= 2) {
+            return shared_from_this();
+        }
         bool nwEmpty {this->nw->isEmpty()};
         bool neEmpty {this->ne->isEmpty()};
         bool swEmpty {this->sw->isEmpty()};
@@ -200,20 +202,6 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
     }
     
     std::shared_ptr<QuadTree> evolveCenter() {
-        /*
-        Takes the currrent QuadTree:
-        1 2 | 1 2
-        3 4 | 3 4
-        ----+----
-        1 2 | 1 2
-        3 4 | 3 4
-        Returns the evolved center:
-        * * | * *
-        * 4 | 3 *
-        ----+----
-        * 2 | 1 *
-        * * | * *
-        */
         
         QuadTreeKey treeKey {this->nw.get(), this->ne.get(), this->sw.get(), this->se.get(), this->nw->depth};
         
@@ -317,11 +305,10 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
 
 std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
     QuadTreeKey treeKey {nw.get(), ne.get(), sw.get(), se.get(), nw->depth};
-    int hashedKey {static_cast<int>(hashKey(treeKey))};
     
-    if (treeCache.contains(hashedKey)) return treeCache.at(hashedKey);
+    if (treeCache.contains(treeKey)) return treeCache[treeKey];
     
-    return treeCache[hashedKey] = std::make_shared<QuadTree>(nw, ne, sw, se);
+    return treeCache[treeKey] = std::make_shared<QuadTree>(nw, ne, sw, se);
 }
 
 std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se) {
@@ -450,7 +437,7 @@ void printQuadTree(const std::shared_ptr<QuadTree> quadTree) {
 /* ---------- Init -----------*/
 
 void init() {
-    leafCache.reserve(16);
+    leafCache.resize(16);
     for (int i = 0; i <= 15; i++) {
         leafCache[i] = std::make_shared<QuadTree>(i & 1, (i >> 1) & 1, (i >> 2) & 1, (i >> 3) & 1);
     }
@@ -478,7 +465,7 @@ int main() {
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     }};
-    constexpr bool doPrint {1};
+    constexpr bool doPrint {0};
     auto tree = squareArrayToQuadTree(array);
     printQuadTree(tree);
     
@@ -486,7 +473,7 @@ int main() {
     timer.reset();
     for (int i = 0; i < 5300; i++) {
         tree = tree->evolve();
-        if (doPrint && i > 80) printQuadTree(tree);
+        if (doPrint) printQuadTree(tree);
         std::cout << "Completed generation #" << i << "\n";
     }
     std::cout << (timer.elapsed()*1000) << "ms elapsed";
