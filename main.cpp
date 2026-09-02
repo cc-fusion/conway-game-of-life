@@ -80,7 +80,7 @@ public:
 
 /* ---------- Quadtrees ---------- */
 
-class QuadTree {
+class QuadTree : public std::enable_shared_from_this<QuadTree> {
     public:
     std::shared_ptr<QuadTree> nw;
     std::shared_ptr<QuadTree> ne;
@@ -190,7 +190,7 @@ class QuadTree {
         if (nwEmpty && neEmpty &&            seEmpty) return this->sw->trim();
         if (nwEmpty && neEmpty && swEmpty           ) return this->se->trim();
         
-        return this;
+        return shared_from_this();
     }
     
     std::shared_ptr<QuadTree> evolveCenter() {
