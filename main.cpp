@@ -209,6 +209,12 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
         * * | * *
         */
         
+        QuadTreeKey treeKey {this->nw.get(), this->ne.get(), this->sw.get(), this->se.get(), this->nw->depth};
+        
+        if (evolutionCache.contains(treeKey)) {
+            return evolutionCache[treeKey];
+        }
+        
         if (this->depth == 2) {
             /*
             nw.nw nw.ne ne.nw ne.ne
@@ -239,7 +245,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             /*
             (live && neighbors == 2) || neighbors == 3
             */
-            return createQuadTree(
+            return evolutionCache[treeKey] = createQuadTree(
                 (this->nw->se_leaf && neighbors_nw == 2) || (neighbors_nw == 3),
                 (this->ne->sw_leaf && neighbors_ne == 2) || (neighbors_ne == 3),
                 (this->sw->ne_leaf && neighbors_sw == 2) || (neighbors_sw == 3),
@@ -286,7 +292,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             largeAux_sw = largeAux_sw->getCenter();
             largeAux_se = largeAux_se->getCenter();
             
-            return createQuadTree(
+            return evolutionCache[treeKey] = createQuadTree(
                 largeAux_nw,
                 largeAux_ne,
                 largeAux_sw,
@@ -303,7 +309,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
     }
 };
 
-/*std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
+std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
     QuadTreeKey treeKey {nw.get(), ne.get(), sw.get(), se.get(), nw->depth};
     int hashedKey {static_cast<int>(hashKey(treeKey))};
     
@@ -317,10 +323,9 @@ std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se) {
     
     return leafCache[hashedKey];
 }
-*/
+
 /* ---------- Quadtrees (inefficient, used for comparison) ---------- */
-
-
+/*
 std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
     return std::make_shared<QuadTree>(nw, ne, sw, se);
 }
@@ -467,20 +472,18 @@ int main() {
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     }};
+    constexpr bool doPrint {false};
     auto tree = squareArrayToQuadTree(array);
     printQuadTree(tree);
+    
+    Timer timer {};
+    timer.reset();
     for (int i = 0; i < 5300; i++) {
         tree = tree->evolve();
-        printQuadTree(tree);
-    }
-    /*Timer timer {};
-    timer.reset();
-    //printQuadTree(tree);
-    for (int i = 0; i < 1000; i++) {
-        tree = tree->evolve();
-        //printQuadTree(tree);
+        if (doPrint) printQuadTree(tree);
+        std::cout << "Completed generation #" << i << "\n";
     }
     std::cout << (timer.elapsed()*1000) << "ms elapsed";
-    printQuadTree(tree);*/
+    if (!doPrint) printQuadTree(tree);
     return 0;
 }
