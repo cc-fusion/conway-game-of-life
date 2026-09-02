@@ -210,9 +210,10 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
         */
         
         QuadTreeKey treeKey {this->nw.get(), this->ne.get(), this->sw.get(), this->se.get(), this->nw->depth};
+        int hashedKey {static_cast<int>(hashKey(treeKey))};
         
-        if (evolutionCache.contains(treeKey)) {
-            return evolutionCache[treeKey];
+        if (evolutionCache.contains(hashedKey)) {
+            return evolutionCache[hashedKey];
         }
         
         if (this->depth == 2) {
@@ -245,7 +246,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             /*
             (live && neighbors == 2) || neighbors == 3
             */
-            return evolutionCache[treeKey] = createQuadTree(
+            return evolutionCache[hashedKey] = createQuadTree(
                 (this->nw->se_leaf && neighbors_nw == 2) || (neighbors_nw == 3),
                 (this->ne->sw_leaf && neighbors_ne == 2) || (neighbors_ne == 3),
                 (this->sw->ne_leaf && neighbors_sw == 2) || (neighbors_sw == 3),
@@ -292,7 +293,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             largeAux_sw = largeAux_sw->getCenter();
             largeAux_se = largeAux_se->getCenter();
             
-            return evolutionCache[treeKey] = createQuadTree(
+            return evolutionCache[hashedKey] = createQuadTree(
                 largeAux_nw,
                 largeAux_ne,
                 largeAux_sw,
