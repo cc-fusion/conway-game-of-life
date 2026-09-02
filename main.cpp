@@ -175,6 +175,24 @@ class QuadTree {
         return this->isLeftEmpty() && this->isRightEmpty() && this->isTopEmpty() && this->isBottomEmpty();
     }
     
+    bool isEmpty() {
+        if (this->depth == 1) return this->nw_leaf && this->ne_leaf && this->sw_leaf && this->se_leaf;
+        return this->nw->isEmpty() && this->ne->isEmpty() && this->sw->isEmpty() && this->se->isEmpty();
+    }
+    
+    std::shared_ptr<QuadTree> trim() {
+        bool nwEmpty {this->nw->isEmpty()};
+        bool neEmpty {this->ne->isEmpty()};
+        bool swEmpty {this->sw->isEmpty()};
+        bool seEmpty {this->se->isEmpty()};
+        if (           neEmpty && swEmpty && seEmpty) return this->nw->trim();
+        if (nwEmpty &&            swEmpty && seEmpty) return this->ne->trim();
+        if (nwEmpty && neEmpty &&            seEmpty) return this->sw->trim();
+        if (nwEmpty && neEmpty && swEmpty           ) return this->se->trim();
+        
+        return this;
+    }
+    
     std::shared_ptr<QuadTree> evolveCenter() {
         /*
         Takes the currrent QuadTree:
@@ -277,7 +295,10 @@ class QuadTree {
         }
     }
     std::shared_ptr<QuadTree> evolve() {
-        return this->addPadding()->evolveCenter();
+        if (this->isBorderEmpty()) {
+            return this->trim()->addPadding()->evolve();
+        }
+        return this->trim()->addPadding()->evolveCenter();
     }
 };
 
@@ -433,20 +454,25 @@ int main() {
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0},
-        {0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0}, 
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}, 
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0},
+        {0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0},
+        {0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     }};
     auto tree = squareArrayToQuadTree(array);
-    Timer timer {};
+    printQuadTree(tree);
+    for (int i = 0; i < 10; i++) {
+        tree = tree->evolve();
+        printQuadTree(tree);
+    }
+    /*Timer timer {};
     timer.reset();
     //printQuadTree(tree);
     for (int i = 0; i < 1000; i++) {
@@ -454,5 +480,6 @@ int main() {
         //printQuadTree(tree);
     }
     std::cout << (timer.elapsed()*1000) << "ms elapsed";
+    printQuadTree(tree);*/
     return 0;
 }
