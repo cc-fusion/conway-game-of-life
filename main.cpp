@@ -475,6 +475,11 @@ int main() {
         tree = tree->evolve();
         if (doPrint) printQuadTree(tree);
         std::cout << "Completed generation #" << i << "\n";
+        if (i % 100 == 0) {
+    treeCache.clear();
+    evolutionCache.clear();
+    init(); // Re-initialize leaf cache
+}
     }
     std::cout << (timer.elapsed()*1000) << "ms elapsed";
     if (!doPrint) printQuadTree(tree);
