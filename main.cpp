@@ -139,6 +139,10 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
         );
         return std::make_shared<QuadTree>(nw, ne, sw, se);
     }
+    std::shared_ptr<QuadTree> addPadding(int count) {
+        if (count == 1) return this->addPadding();
+        return this->addPadding(count-1);
+    }
     std::shared_ptr<QuadTree> getCenter() {
         assert(this->depth >= 2 && "Depth is not enough to find center");
         if (depth == 2) {
@@ -281,10 +285,10 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             auto largeAux_sw = createQuadTree(aux_w, aux_center, aux_sw, aux_s);
             auto largeAux_se = createQuadTree(aux_center, aux_e, aux_s, aux_se);
             
-            largeAux_nw = largeAux_nw->getCenter();
-            largeAux_ne = largeAux_ne->getCenter();
-            largeAux_sw = largeAux_sw->getCenter();
-            largeAux_se = largeAux_se->getCenter();
+            largeAux_nw = largeAux_nw->evolveCenter();
+            largeAux_ne = largeAux_ne->evolveCenter();
+            largeAux_sw = largeAux_sw->evolveCenter();
+            largeAux_se = largeAux_se->evolveCenter();
             
             return evolutionCache[treeKey] = createQuadTree(
                 largeAux_nw,
@@ -295,11 +299,10 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
         }
     }
     std::shared_ptr<QuadTree> evolve() {
-        auto trimmed {this->trim()};
         if (!this->isBorderEmpty()) {
-            return trimmed->addPadding()->evolve();
+            return this->addPadding(5)->evolve();
         }
-        return trimmed->addPadding()->evolveCenter();
+        return this->addPadding(50)->evolveCenter();
     }
 };
 
@@ -316,16 +319,6 @@ std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se) {
     
     return leafCache[hashedKey];
 }
-
-/* ---------- Quadtrees (inefficient, used for comparison) ---------- */
-/*
-std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
-    return std::make_shared<QuadTree>(nw, ne, sw, se);
-}
-
-std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se) {
-    return std::make_shared<QuadTree>(nw, ne, sw, se);
-}*/
 
 /* ---------- Helper Functions ---------- */
 
@@ -465,23 +458,109 @@ int main() {
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     }};
-    constexpr bool doPrint {0};
+    constexpr bool doPrint {1};
     auto tree = squareArrayToQuadTree(array);
     printQuadTree(tree);
     
     Timer timer {};
     timer.reset();
-    for (int i = 0; i < 5300; i++) {
+    int i {0};
+    while (i < 24) {
+        //tree = tree->trim();
+        i += std::pow(2, tree->depth-1);
         tree = tree->evolve();
+        std::cout << "Generation #" << i << ":\n";
         if (doPrint) printQuadTree(tree);
-        std::cout << "Completed generation #" << i << "\n";
-        if (i % 100 == 0) {
-    treeCache.clear();
-    evolutionCache.clear();
-    init(); // Re-initialize leaf cache
-}
     }
     std::cout << (timer.elapsed()*1000) << "ms elapsed";
     if (!doPrint) printQuadTree(tree);
     return 0;
 }
+
+/*
+The pattern does not match the expected pattern at generation 24. Here are the compilation results:
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . # . . . . . . . . . 
+. . . . . . . . # . . . . . . . 
+. . . . . # # . . # # # . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+
+Generation #8:
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . # # . . . . 
+. . . . . . # # . # . . # . . . 
+. . . . . # # . . . . . # . . . 
+. . . . . . # # . . . # # . . . 
+. . . . . . . . . # # # . . . . 
+. . . . . . . . . # # . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+
+Generation #16:
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . # # . . . . 
+. . . . . . . . . # # # # . . . 
+. . . . # # # . . # . . . # . . 
+. . # # . . . # # . . # # . . . 
+. . # . . . # . # # # # . . . . 
+. . # . . . . # # . . . . . . . 
+. . . # # . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+
+Generation #24:
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . # # . . # # . . 
+. . . . . . . . . . # # # # # . 
+. . . . . . . # # . . . # . # # 
+# # . . . . # # . . . . . # . # 
+. . # . . # . # . . # . . . . # 
+. # # # # . . . . . # . . . # # 
+. . . # # # . # . . . # # # . . 
+# # # # . . . . . . # . . . . . 
+. # # . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . . 
+. . . . . . . . . . . . . . . .
+
+Expected pattern (trimmed):
+
+. . . . . . . . . . # # . . # # . . .
+. . . . . . . . . . . . # # # # # . .
+. . . . . . . . . # # . . . # . # # .
+. . # # . . . . # # . . . . . # . # #
+# # . . # . . # . # . . # . . . . # .
+# . . # # # # . . . . . # . . . # # .
+# . . . . # # # . # . . . # # # . . .
+. # # # # # . . . . . . # . . . . . .
+. . . # # . . . . . . . . . . . . . .
+
+Find the issue and explain how to fix it.
+*/
