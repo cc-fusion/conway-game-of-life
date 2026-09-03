@@ -461,12 +461,59 @@ std::shared_ptr<QuadTree> arrayToQuadTree(const std::vector<std::vector<bool>>& 
 
 /* ---------- I/O ----------- */
 
-void printArray(std::vector<std::vector<bool>>& array, char char_live = '#', char char_dead = '.') {
+void printArray(std::vector<std::vector<bool>>& array, char char_live = '#', char char_dead = '.', bool crop = true) {
     std::stringstream ss;
     
-    for (auto& i : array) {
-        for (bool j : i) {
-            ss << (j ? char_live : char_dead) << " ";
+    int minCol {0};
+    int minRow {0};
+    int sizeRow {static_cast<int>(array.size())};
+    int sizeCol {static_cast<int>(array[0].size())};
+    int maxCol {sizeCol-1};
+    int maxRow {sizeRow-1};
+    
+    auto isRowEmpty = [&array, sizeCol](int idx) -> bool {
+        for (int i = 0; i < sizeCol; i++) {
+            if (array[idx][i]) return false;
+        }
+        return true;
+    };
+    auto isColEmpty = [&array, sizeRow](int idx) -> bool {
+        for (int i = 0; i < sizeRow; i++) {
+            if (array[i][idx]) return false;
+        }
+        return true;
+    };
+    
+    if (crop) {
+        for (int i = 0; i < sizeCol; i++) {
+            if (!isColEmpty(i)) {
+                minCol = std::max(0,i-1);
+                break;
+            }
+        }
+        for (int i = sizeCol-1; i >= 0; i--) {
+            if (!isColEmpty(i)) {
+                maxCol = std::min(sizeCol-1,i+1);
+                break;
+            }
+        }
+        for (int i = 0; i < sizeRow; i++) {
+            if (!isRowEmpty(i)) {
+                minRow = std::max(0,i-1);
+                break;
+            }
+        }
+        for (int i = sizeRow-1; i >= 0; i--) {
+            if (!isRowEmpty(i)) {
+                maxRow = std::min(sizeRow-1,i+1);
+                break;
+            }
+        }
+    }
+    // the +1 is added here for unknown reasons
+    for (int i = minRow+1; i < maxRow; i++) {
+        for (int j = minCol+1; j < maxCol; j++) {
+            ss << (array[i][j] ? char_live : char_dead) << " ";
         }
         ss << "\n";
     }
