@@ -137,7 +137,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             this->se, makePadding(),
             makePadding(), makePadding()
         );
-        return std::make_shared<QuadTree>(nw, ne, sw, se);
+        return createQuadTree(nw, ne, sw, se);
     }
     std::shared_ptr<QuadTree> addPadding(int count) {
         if (count == 1) return this->addPadding();
@@ -187,6 +187,25 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
     bool isEmpty() {
         if (this->depth == 1) return !(this->nw_leaf || this->ne_leaf || this->sw_leaf || this->se_leaf);
         return this->nw->isEmpty() && this->ne->isEmpty() && this->sw->isEmpty() && this->se->isEmpty();
+    }
+    bool isPaddingEmpty() {
+        /* padding shown as P
+        P P P P
+        P . . P
+        P . . P
+        P P P P
+        */
+        assert(this->depth >= 2 && "Depth is too low to call isPaddingEmpty");
+        if (this->depth == 2) {
+            return !(this->nw->nw_leaf || this->nw->ne_leaf || this->ne->nw_leaf || this->ne->ne_leaf ||
+                     this->nw->sw_leaf/*this->nw->se_leaf || this->ne->sw_leaf*/ || this->ne->se_leaf ||
+                     this->sw->nw_leaf/*this->sw->ne_leaf || this->se->nw_leaf*/ || this->se->ne_leaf ||
+                     this->sw->sw_leaf || this->sw->se_leaf || this->se->sw_leaf || this->se->se_leaf);
+        }
+        return this->nw->nw->isEmpty() && this->nw->ne->isEmpty() && this->ne->nw->isEmpty() && this->ne->ne->isEmpty() && 
+               this->nw->sw->isEmpty()/*this->nw->se->isEmpty() && this->ne->sw->isEmpty()*/ && this->ne->se->isEmpty() && 
+               this->sw->nw->isEmpty()/*this->sw->ne->isEmpty() && this->se->nw->isEmpty()*/ && this->se->ne->isEmpty() && 
+               this->sw->sw->isEmpty() && this->sw->se->isEmpty() && this->se->sw->isEmpty() && this->se->se->isEmpty();
     }
     
     std::shared_ptr<QuadTree> trim() {
@@ -298,12 +317,12 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             );
         }
     }
-    std::shared_ptr<QuadTree> evolve() {
-        if (!this->isBorderEmpty()) {
-            return this->addPadding(5)->evolve();
+    /*std::shared_ptr<QuadTree> evolve() {
+        if (!this->isPaddingEmpty()) {
+            return this->addPadding()->evolve();
         }
-        return this->addPadding(50)->evolveCenter();
-    }
+        return this->addPadding()->evolveCenter();
+    }*/
 };
 
 std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
@@ -324,6 +343,25 @@ std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se) {
 
 bool isPowerOfTwo(int n) { // magic function that does something and somehow works
     return n > 0 && (n & (n - 1)) == 0;
+}
+
+int nextHighestPowerOf2(int v) {
+    // magic function taken from stackoverflow that does something and somehow works
+    
+    // Source - https://stackoverflow.com/a/466242
+    // Posted by florin, modified by community. See post 'Timeline' for change history
+    // Retrieved 2026-09-03, License - CC BY-SA 4.0
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    return ++v;
+}
+
+int power2(int x) {
+    return 1 << x;
 }
 
 std::shared_ptr<QuadTree> createEmptyQuadTree(int depth) {
@@ -406,6 +444,21 @@ std::vector<std::vector<bool>> quadTreeToArray(const std::shared_ptr<QuadTree> q
     return join2x2Arrays(nw, ne, sw, se);
 }
 
+std::shared_ptr<QuadTree> arrayToQuadTree(const std::vector<std::vector<bool>>& grid) {
+    int sizeX {static_cast<int>(grid.size())};
+    int sizeY {static_cast<int>(grid[0].size())};
+    int idealSize {nextHighestPowerOf2(std::max(sizeX, sizeY))};
+    
+    std::vector<std::vector<bool>> gridCopy(grid);
+    
+    gridCopy.resize(idealSize);
+    for (auto& row : gridCopy) {
+        row.resize(idealSize, false);
+    }
+    
+    return squareArrayToQuadTree(gridCopy);
+}
+
 /* ---------- I/O ----------- */
 
 void printArray(std::vector<std::vector<bool>>& array, char char_live = '#', char char_dead = '.') {
@@ -458,17 +511,19 @@ int main() {
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
     }};
-    constexpr bool doPrint {1};
-    auto tree = squareArrayToQuadTree(array);
+    constexpr bool doPrint {0};
+    auto tree = arrayToQuadTree(array)->trim();
     printQuadTree(tree);
     
     Timer timer {};
     timer.reset();
     int i {0};
-    while (i < 24) {
-        //tree = tree->trim();
-        i += std::pow(2, tree->depth-1);
-        tree = tree->evolve();
+    while (i < 500) {
+        while (!tree->isPaddingEmpty()) {
+            tree = tree->addPadding();
+        }
+        i += power2(tree->depth-1);
+        tree = tree->addPadding()->evolveCenter()->trim();
         std::cout << "Generation #" << i << ":\n";
         if (doPrint) printQuadTree(tree);
     }
@@ -476,91 +531,3 @@ int main() {
     if (!doPrint) printQuadTree(tree);
     return 0;
 }
-
-/*
-The pattern does not match the expected pattern at generation 24. Here are the compilation results:
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . # . . . . . . . . . 
-. . . . . . . . # . . . . . . . 
-. . . . . # # . . # # # . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-
-Generation #8:
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . # # . . . . 
-. . . . . . # # . # . . # . . . 
-. . . . . # # . . . . . # . . . 
-. . . . . . # # . . . # # . . . 
-. . . . . . . . . # # # . . . . 
-. . . . . . . . . # # . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-
-Generation #16:
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . # # . . . . 
-. . . . . . . . . # # # # . . . 
-. . . . # # # . . # . . . # . . 
-. . # # . . . # # . . # # . . . 
-. . # . . . # . # # # # . . . . 
-. . # . . . . # # . . . . . . . 
-. . . # # . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-
-Generation #24:
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . # # . . # # . . 
-. . . . . . . . . . # # # # # . 
-. . . . . . . # # . . . # . # # 
-# # . . . . # # . . . . . # . # 
-. . # . . # . # . . # . . . . # 
-. # # # # . . . . . # . . . # # 
-. . . # # # . # . . . # # # . . 
-# # # # . . . . . . # . . . . . 
-. # # . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . . 
-. . . . . . . . . . . . . . . .
-
-Expected pattern (trimmed):
-
-. . . . . . . . . . # # . . # # . . .
-. . . . . . . . . . . . # # # # # . .
-. . . . . . . . . # # . . . # . # # .
-. . # # . . . . # # . . . . . # . # #
-# # . . # . . # . # . . # . . . . # .
-# . . # # # # . . . . . # . . . # # .
-# . . . . # # # . # . . . # # # . . .
-. # # # # # . . . . . . # . . . . . .
-. . . # # . . . . . . . . . . . . . .
-
-Find the issue and explain how to fix it.
-*/
