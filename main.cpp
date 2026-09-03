@@ -61,6 +61,8 @@ std::unordered_map<QuadTreeKey, std::shared_ptr<QuadTree>, QuadTreeHash> treeCac
 
 std::vector<std::shared_ptr<QuadTree>> leafCache;
 
+/* ---------- LRU ---------- */
+
 /* ---------- Timer ---------- */
 
 // https://www.learncpp.com/cpp-tutorial/timing-your-code/
@@ -565,7 +567,7 @@ int main() {
     Timer timer {};
     timer.reset();
     int i {0};
-    while (i < 500) {
+    while (i < 600) {
         while (!tree->isPaddingEmpty()) {
             tree = tree->addPadding();
         }
@@ -574,7 +576,7 @@ int main() {
         std::cout << "Generation #" << i << ":\n";
         if (doPrint) printQuadTree(tree);
     }
-    std::cout << (timer.elapsed()*1000) << "ms elapsed";
+    std::cout << (timer.elapsed()*1000) << "ms elapsed\n";
     if (!doPrint) printQuadTree(tree);
     return 0;
 }
