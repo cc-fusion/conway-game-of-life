@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <functional>
 #include <chrono>
+#include <list>
+#include <utility>
 
 /*
   n
@@ -62,6 +64,24 @@ std::unordered_map<QuadTreeKey, std::shared_ptr<QuadTree>, QuadTreeHash> treeCac
 std::vector<std::shared_ptr<QuadTree>> leafCache;
 
 /* ---------- LRU ---------- */
+
+template <typename T_key, typename T_val, typename T_hash>
+class LRU {
+    T_key key;
+    T_val val;
+    T_hash hash;
+    
+    LRU(T_key key, T_val val, T_hash hash) {
+        fsdhalkfjshlkfjashdlkfasdflkahsdlkfasdkjf
+    }
+    
+    bool contains(T val) {
+        
+    }
+    T at(T val) {
+        
+    }
+}
 
 /* ---------- Timer ---------- */
 
