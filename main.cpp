@@ -26,6 +26,9 @@ std::shared_ptr<QuadTree> createEmptyQuadTree (int depth);
 std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se);
 std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se);
 
+template <typename T_key, typename T_val>
+class LRU;
+
 /* ---------- Memoization ---------- */
 
 struct QuadTreeKey {
@@ -58,16 +61,13 @@ struct QuadTreeHash {
     }
 };
 
-std::unordered_map<QuadTreeKey, std::shared_ptr<QuadTree>, QuadTreeHash> evolutionCache;
-
-std::unordered_map<QuadTreeKey, std::shared_ptr<QuadTree>, QuadTreeHash> treeCache;
-
+LRU<QuadTreeKey, std::shared_ptr<QuadTree>> evolutionCache;
+LRU<QuadTreeKey, std::shared_ptr<QuadTree>> treeCache;
 std::vector<std::shared_ptr<QuadTree>> leafCache;
 
-/* ---------- LRU ---------- */
+/* ---------- LRU Cache ---------- */
 
 // https://medium.com/@shahjui2000/the-o-1-solution-mastering-the-lru-cache-with-modern-c-416afc0bfe83
-
 template <typename T_key, typename T_val>
 class LRU {
 // a few pieces of copy-pasted code that appears to work
@@ -81,11 +81,14 @@ public:
     LRU(int capacity) {
         this->capacity = capacity;
     }
-    
     void resize(int capacity) {
         this->capacity = capacity;
+        while (cache.size() > capacity) {
+            auto last = cache.back();
+            itemList.erase(last.first);
+            cache.pop_back();
+        }
     }
-    
     bool contains(T_key key) const {
         return this->itemList.contains(key);
     }
@@ -97,7 +100,10 @@ public:
         // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
         return it->second->second;
     }
-    void set(T_key key, T_val val) {
+    const T_val operator[](T_key key) const {
+        return this->itemList.find(key)->second->second;
+    }
+    T_val& operator[](T_key key) {
         auto& cache {this->cache};
         auto& items {this->itemList};
         auto it {items.find(key)};
@@ -106,13 +112,12 @@ public:
             // Case A: Update existing key and move it to start
             
             items.splice(items.begin(), items, it->second);
-            it->second->second = val; // Update the value
-            return;
+            return it->second->second;
         }
         if (items.size() == this->capacity) {
             // Case B: Delete last used cache
             
-            int key_to_delete = items.back().first; // Get Key from back-reference
+            int key_to_delete = items.back().first; // .first is Key
             items.pop_back(); // O(1) memory cleanup by std::list
             cache.erase(key_to_delete); // O(1) map cleanup
         }
