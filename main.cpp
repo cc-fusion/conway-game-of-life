@@ -121,9 +121,12 @@ public:
             items.pop_back(); // O(1) memory cleanup by std::list
             cache.erase(key_to_delete); // O(1) map cleanup
         }
-        // Insert new item at front (MRU)
-        items.emplace_front(key, val);
-        cache[key] = items.begin();
+        
+        cache.emplace_front(key, T_val{});
+        
+        itemList[key] = cache.begin();
+        
+        return cache.front().second;
     }
 };
 
