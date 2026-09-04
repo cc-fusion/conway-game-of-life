@@ -73,8 +73,8 @@ class LRU {
 // a few pieces of copy-pasted code that appears to work
 private:
     using CacheList = std::list<std::pair<T_key, T_val>>;
-    CacheList cache;
-    std::unordered_map<T_key, typename CacheList::iterator> itemList;
+    CacheList usedList;
+    std::unordered_map<T_key, typename CacheList::iterator> lookupTable;
     
     int capacity;
 public:
@@ -83,50 +83,39 @@ public:
     }
     void resize(int capacity) {
         this->capacity = capacity;
-        while (cache.size() > capacity) {
-            auto last = cache.back();
-            itemList.erase(last.first);
-            cache.pop_back();
+        while (lookupTable.size() > capacity) {
+            auto last {usedList.back()};
+            usedList.erase(last.first);
+            lookupTable.pop_back();
         }
     }
     bool contains(T_key key) const {
-        return this->itemList.contains(key);
+        return usedList.find(key) != usedList.end();
     }
-    T_val at(T_key key) {
+    /*T_val at(T_key key) {
         auto items {this->itemList};
         auto it {items.find(key)};
         // O(1): Move the node pointed to by it->second to the front.
         items.splice(items.begin(), items, it->second);
         // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
         return it->second->second;
-    }
+    }*/
     const T_val operator[](T_key key) const {
-        return this->itemList.find(key)->second->second;
+        return this->lookupTable.at(key)->second->second;
     }
     T_val& operator[](T_key key) {
-        auto& cache {this->cache};
-        auto& items {this->itemList};
-        auto it {items.find(key)};
-        
-        if (it != cache.end()) {
-            // Case A: Update existing key and move it to start
-            
-            items.splice(items.begin(), items, it->second);
-            return it->second->second;
+        auto it {this->lookupTable.find(key)};
+        // Case 1: key already exists, write key and move to start
+        if (it != items.end()) {
+            // TODO: move value to start
+            return it->second->second; // return key for writing
         }
-        if (items.size() == this->capacity) {
-            // Case B: Delete last used cache
-            
-            int key_to_delete = items.back().first; // .first is Key
-            items.pop_back(); // O(1) memory cleanup by std::list
-            cache.erase(key_to_delete); // O(1) map cleanup
+        // Case 2: cache is full, evict last used item
+        if (this->capacity >= lookupTable.size()) {
+            // TODO: evict last used item
         }
-        
-        cache.emplace_front(key, T_val{});
-        
-        itemList[key] = cache.begin();
-        
-        return cache.front().second;
+        // TODO: write empty key
+        return // TODO: return empty key for writing
     }
 };
 
