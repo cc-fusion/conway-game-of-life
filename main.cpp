@@ -11,6 +11,7 @@
 #include <chrono>
 #include <list>
 #include <utility>
+#include <unordered_set>
 
 /*
   n
@@ -65,23 +66,44 @@ std::vector<std::shared_ptr<QuadTree>> leafCache;
 
 /* ---------- LRU ---------- */
 
-template <typename T_key, typename T_val, typename T_hash>
+// https://medium.com/@shahjui2000/the-o-1-solution-mastering-the-lru-cache-with-modern-c-416afc0bfe83
+
+template <typename T_key, typename T_val>
 class LRU {
+private:
     T_key key;
     T_val val;
-    T_hash hash;
+    std::list<std::pair<T_key, T_val>> cache;
+    std::unordered_map<T_key, cache::iterator> itemList;
     
-    LRU(T_key key, T_val val, T_hash hash) {
-        fsdhalkfjshlkfjashdlkfasdflkahsdlkfasdkjf
+    int capacity;
+public:
+    LRU(T_key key, T_val val, T_hash hash, int capacity) {
+        this->capacity = capacity;
     }
     
-    bool contains(T val) {
-        
+    void resize(int capacity) {
+        this->capacity = capacity;
     }
-    T at(T val) {
-        
+    
+    bool contains(T_key key) const {
+        return this->itemList.contains(key);
     }
-}
+    T_val at(T_key key) const {
+        auto it {this->itemList.at(key)};
+        // O(1): Move the node pointed to by it->second to the front.
+        this->itemList.splice(this->itemList.begin(), this->itemList, it->second);
+        // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
+        return it->second->second;
+    }
+    void set(T_key key, T_val val) {
+        auto it {this->itemList.at(key)};
+        // O(1): Move the node pointed to by it->second to the front.
+        this->itemList.splice(this->itemList.begin(), this->itemList, it->second);
+        // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
+        return it->second->second;
+    }
+};
 
 /* ---------- Timer ---------- */
 
