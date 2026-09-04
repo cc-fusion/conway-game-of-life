@@ -70,15 +70,15 @@ std::vector<std::shared_ptr<QuadTree>> leafCache;
 
 template <typename T_key, typename T_val>
 class LRU {
+// a few pieces of copy-pasted code that appears to work
 private:
-    T_key key;
-    T_val val;
-    std::list<std::pair<T_key, T_val>> cache;
-    std::unordered_map<T_key, cache::iterator> itemList;
+    using CacheList = std::list<std::pair<T_key, T_val>>;
+    CacheList cache;
+    std::unordered_map<T_key, typename CacheList::iterator> itemList;
     
     int capacity;
 public:
-    LRU(T_key key, T_val val, T_hash hash, int capacity) {
+    LRU(int capacity) {
         this->capacity = capacity;
     }
     
@@ -89,19 +89,36 @@ public:
     bool contains(T_key key) const {
         return this->itemList.contains(key);
     }
-    T_val at(T_key key) const {
-        auto it {this->itemList.at(key)};
+    T_val at(T_key key) {
+        auto items {this->itemList};
+        auto it {items.find(key)};
         // O(1): Move the node pointed to by it->second to the front.
-        this->itemList.splice(this->itemList.begin(), this->itemList, it->second);
+        items.splice(items.begin(), items, it->second);
         // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
         return it->second->second;
     }
     void set(T_key key, T_val val) {
-        auto it {this->itemList.at(key)};
-        // O(1): Move the node pointed to by it->second to the front.
-        this->itemList.splice(this->itemList.begin(), this->itemList, it->second);
-        // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
-        return it->second->second;
+        auto& cache {this->cache};
+        auto& items {this->itemList};
+        auto it {items.find(key)};
+        
+        if (it != cache.end()) {
+            // Case A: Update existing key and move it to start
+            
+            items.splice(items.begin(), items, it->second);
+            it->second->second = val; // Update the value
+            return;
+        }
+        if (items.size() == this->capacity) {
+            // Case B: Delete last used cache
+            
+            int key_to_delete = items.back().first; // Get Key from back-reference
+            items.pop_back(); // O(1) memory cleanup by std::list
+            cache.erase(key_to_delete); // O(1) map cleanup
+        }
+        // Insert new item at front (MRU)
+        items.emplace_front(key, val);
+        cache[key] = items.begin();
     }
 };
 
