@@ -45,7 +45,7 @@ public:
     }
     void resize(int capacity) {
         this->capacity = capacity;
-        while (lookupTable.size() > capacity) {
+        while (lookupTable.size() >= capacity) {
             // erase the last (used) element of the list
             auto last {this->usedList.back()};
             this->usedList.erase(last.first); // last.first in this context returns the key
@@ -55,16 +55,14 @@ public:
     bool contains(T_key key) const {
         return this->lookupTable.contains(key);
     }
-    /*T_val at(T_key key) {
-        auto items {this->itemList};
-        auto it {items.find(key)};
-        // O(1): Move the node pointed to by it->second to the front.
-        items.splice(items.begin(), items, it->second);
-        // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
-        return it->second->second;
-    }*/
+    size_t size() const {
+        return this->lookupTable.size();
+    }
+    T_val at(T_key key) const {
+        return this->lookupTable.at(key)->second;
+    }
     const T_val operator[](T_key key) const {
-        return this->lookupTable.at(key)->second.second;
+        return this->lookupTable.at(key)->second;
     }
     T_val& operator[](T_key key) {
         // Case: key already exists
@@ -75,15 +73,19 @@ public:
             return it->second; // return key for writing
         }
         // Case: cache is full, evict last used item
-        if (this->lookupTable.size() > this->capacity) {
+        if (this->lookupTable.size() >= this->capacity) {
             // evict last used item
             auto last {this->usedList.back()};
             this->lookupTable.erase(last.first); // .first gives the key from the std::pair<T_key, T_val>
             this->usedList.pop_back();
         }
-        this->lookupTable[key];
+        /*
+        list.front returns a value
+        list.begin returns a bidirectional pointer
+        */
         this->usedList.emplace_front(key, T_val{}); // T_val{} creates a default value
-        return lookupTable[key]->second;
+        this->lookupTable[key] = this->usedList.begin();
+        return this->usedList.front().second;
     }
 };
 
