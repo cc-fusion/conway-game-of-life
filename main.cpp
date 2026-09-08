@@ -13,6 +13,9 @@
 #include <utility>
 #include <unordered_set>
 
+constexpr int treeCacheCapacity {10000};
+constexpr int evolutionCacheCapacity {10000};
+
 /*
   n
 w # e
@@ -26,8 +29,63 @@ std::shared_ptr<QuadTree> createEmptyQuadTree (int depth);
 std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se);
 std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se);
 
-template <typename T_key, typename T_val>
-class LRU;
+/* ---------- LRU Cache ---------- */
+
+// https://medium.com/@shahjui2000/the-o-1-solution-mastering-the-lru-cache-with-modern-c-416afc0bfe83
+template <typename T_key, typename T_val, typename T_hash = std::hash<T_key>>
+class LRU {
+private:
+    using CacheList = std::list<std::pair<T_key, T_val>>;
+    CacheList usedList;
+    std::unordered_map<T_key, typename CacheList::iterator, T_hash> lookupTable;
+    int capacity;
+public:
+    LRU(int capacity) {
+        this->capacity = capacity;
+    }
+    void resize(int capacity) {
+        this->capacity = capacity;
+        while (lookupTable.size() > capacity) {
+            // erase the last (used) element of the list
+            auto last {this->usedList.back()};
+            this->usedList.erase(last.first); // last.first in this context returns the key
+            this->lookupTable.pop_back();
+        }
+    }
+    bool contains(T_key key) const {
+        return this->lookupTable.contains(key);
+    }
+    /*T_val at(T_key key) {
+        auto items {this->itemList};
+        auto it {items.find(key)};
+        // O(1): Move the node pointed to by it->second to the front.
+        items.splice(items.begin(), items, it->second);
+        // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
+        return it->second->second;
+    }*/
+    const T_val operator[](T_key key) const {
+        return this->lookupTable.at(key)->second.second;
+    }
+    T_val& operator[](T_key key) {
+        // Case: key already exists
+        if (this->lookupTable.contains(key)) {
+            auto it {this->lookupTable.at(key)};
+            // move value to most recent
+            this->usedList.splice(this->usedList.begin(), this->usedList, it);
+            return it->second; // return key for writing
+        }
+        // Case: cache is full, evict last used item
+        if (this->lookupTable.size() > this->capacity) {
+            // evict last used item
+            auto last {this->usedList.back()};
+            this->lookupTable.erase(last.first); // .first gives the key from the std::pair<T_key, T_val>
+            this->usedList.pop_back();
+        }
+        this->lookupTable[key];
+        this->usedList.emplace_front(key, T_val{}); // T_val{} creates a default value
+        return lookupTable[key]->second;
+    }
+};
 
 /* ---------- Memoization ---------- */
 
@@ -61,63 +119,9 @@ struct QuadTreeHash {
     }
 };
 
-LRU<QuadTreeKey, std::shared_ptr<QuadTree>> evolutionCache;
-LRU<QuadTreeKey, std::shared_ptr<QuadTree>> treeCache;
+LRU<QuadTreeKey, std::shared_ptr<QuadTree>, QuadTreeHash> evolutionCache(evolutionCacheCapacity);
+LRU<QuadTreeKey, std::shared_ptr<QuadTree>, QuadTreeHash> treeCache(treeCacheCapacity);
 std::vector<std::shared_ptr<QuadTree>> leafCache;
-
-/* ---------- LRU Cache ---------- */
-
-// https://medium.com/@shahjui2000/the-o-1-solution-mastering-the-lru-cache-with-modern-c-416afc0bfe83
-template <typename T_key, typename T_val>
-class LRU {
-// a few pieces of copy-pasted code that appears to work
-private:
-    using CacheList = std::list<std::pair<T_key, T_val>>;
-    CacheList usedList;
-    std::unordered_map<T_key, typename CacheList::iterator> lookupTable;
-    
-    int capacity;
-public:
-    LRU(int capacity) {
-        this->capacity = capacity;
-    }
-    void resize(int capacity) {
-        this->capacity = capacity;
-        while (lookupTable.size() > capacity) {
-            auto last {usedList.back()};
-            usedList.erase(last.first);
-            lookupTable.pop_back();
-        }
-    }
-    bool contains(T_key key) const {
-        return usedList.find(key) != usedList.end();
-    }
-    /*T_val at(T_key key) {
-        auto items {this->itemList};
-        auto it {items.find(key)};
-        // O(1): Move the node pointed to by it->second to the front.
-        items.splice(items.begin(), items, it->second);
-        // *(it->second) is std::pair<T_key, T_val>, and it->second->second is T_val.
-        return it->second->second;
-    }*/
-    const T_val operator[](T_key key) const {
-        return this->lookupTable.at(key)->second->second;
-    }
-    T_val& operator[](T_key key) {
-        auto it {this->lookupTable.find(key)};
-        // Case 1: key already exists, write key and move to start
-        if (it != items.end()) {
-            // TODO: move value to start
-            return it->second->second; // return key for writing
-        }
-        // Case 2: cache is full, evict last used item
-        if (this->capacity >= lookupTable.size()) {
-            // TODO: evict last used item
-        }
-        // TODO: write empty key
-        return // TODO: return empty key for writing
-    }
-};
 
 /* ---------- Timer ---------- */
 
