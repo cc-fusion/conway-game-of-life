@@ -598,26 +598,29 @@ std::vector<std::vector<bool>> parseRLE(std::string_view rle) {
     int currentRowLength {0};
     int rleLength {static_cast<int>(rle.length())};
     while(i < rleLength) {
-        if (rle[i] == '#') { // comment: ignore everything until a newline
+        // comments: ignore everything until a newline
+        if (rle[i] == '#') {
             i++;
             while (rle[i] != '\n' && i < rleLength) {
                 i++;
             }
             continue;
-        } else if (!isDigit(rle[i])) { // ignore weird input
+        }
+        
+        // ignore weird input
+        if (!isDigit(rle[i]) && rle[i] != 'b' && rle[i] != 'o' && rle[i] != '$') {
             i++;
             continue;
         }
         
+        // find coefficient or skip if not digit
         std::string strCoefficient {""};
         while (isDigit(rle[i]) && i < rleLength) {
             strCoefficient += rle[i];
             i++;
         }
         int coefficient {(strCoefficient == "") ? 1 : std::stoi(strCoefficient)};
-        while (rle[i] == ' ' || rle[i] == '\n' || rle[i] == '\r') {
-            i++; // ignore whitespace
-        }
+        
         // b: dead, o: alive, $: line
         char type {rle[i]};
         
