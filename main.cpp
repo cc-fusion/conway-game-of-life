@@ -13,8 +13,8 @@
 #include <utility>
 #include <unordered_set>
 
-constexpr int treeCacheCapacity {10000};
-constexpr int evolutionCacheCapacity {10000};
+constexpr int treeCacheCapacity {10'000};
+constexpr int evolutionCacheCapacity {10'000};
 
 /*
   n
@@ -586,6 +586,47 @@ void printQuadTree(const std::shared_ptr<QuadTree> quadTree) {
     std::vector<std::vector<bool>> array {quadTreeToArray(quadTree)};
     printArray(array); // todo: possibly memory inefficient
 }
+bool isDigit(char x) {
+    return x == '0' || x == '1' || x == '2' || x == '3' || x == '4' || x == '5' || x == '6' || x == '7' || x == '8' || x == '9';
+}
+std::vector<std::vector<bool>> parseRLE(std::string_view rle) {
+    // very inefficient rough parser, allows comments and ignores unknown characters
+    int i {0};
+    std::vector<std::vector<bool>> result;
+    while(i < rle.length()) {
+        if (rle[i] == '#') { // comment: ignore everything until a newline
+            while (rle[i] != '\n' && i < rle.length()) {
+                i++;
+            }
+            continue;
+        }
+        if (!isDigit(rle[i])) continue; // not implementing this
+        
+        std::string strCoefficient {""};
+        while (isDigit(rle[i])) {
+            strCoefficient += rle[i];
+            i++;
+        }
+        int coefficient {std::stoi(strCoefficient)};
+        while (rle[i] != 'b' || rle[i] != 'o' || rle[i] != '$') {
+            i++; // ignore possible newlines
+        }
+        // b: dead, o: alive, $: line
+        char type {rle[i]};
+        
+        for (int i = 0; i < coefficient; i++) {
+            if (type == 'b') {
+                result.back()
+            }
+            if (type == 'o') {
+                
+            }
+            if (type == '$') {
+                
+            }
+        }
+    }
+}
 
 /* ---------- Init -----------*/
 
@@ -625,7 +666,7 @@ int main() {
     Timer timer {};
     timer.reset();
     int i {0};
-    while (i < 6000) {
+    while (i < 1'000'000'000) {
         while (!tree->isPaddingEmpty()) {
             tree = tree->addPadding();
         }
@@ -635,7 +676,7 @@ int main() {
         if (doPrint) printQuadTree(tree);
     }
     std::cout << (timer.elapsed()*1000) << "ms elapsed\n";
-    if (!doPrint) printQuadTree(tree);
+    //if (!doPrint) printQuadTree(tree);
     return 0;
 }
 
