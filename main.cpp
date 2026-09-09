@@ -145,6 +145,28 @@ public:
 	double elapsed() const {
 		return std::chrono::duration_cast<Second>(Clock::now() - m_beg).count();
 	}
+	
+	void printElapsed() const { 
+    double miliseconds {1000 * this->elapsed()}; 
+    
+    double seconds {miliseconds / 1000.0};
+    double minutes {seconds / 60.0};
+    double hours {minutes / 60.0};
+
+    if (seconds >= 1.0) { 
+        if (minutes >= 1.0) { 
+            if (hours >= 1.0) { 
+                std::cout << hours << "h"; 
+            } else { 
+                std::cout << minutes << "m"; 
+            } 
+        } else { 
+            std::cout << seconds << "s"; 
+        } 
+    } else { 
+        std::cout << miliseconds << "ms"; 
+    } 
+}
 };
 
 /* ---------- Quadtrees ---------- */
@@ -589,58 +611,37 @@ void printQuadTree(const std::shared_ptr<QuadTree> quadTree) {
 bool isDigit(char x) {
     return x == '0' || x == '1' || x == '2' || x == '3' || x == '4' || x == '5' || x == '6' || x == '7' || x == '8' || x == '9';
 }
+
 std::vector<std::vector<bool>> parseRLE(std::string_view rle) {
-    // very inefficient rough parser, allows comments and ignores unknown characters
+    // does not support comments or headers
     int i {0};
     std::vector<std::vector<bool>> result;
     result.emplace_back();
     int maxRowLength {0};
     int currentRowLength {0};
     int rleLength {static_cast<int>(rle.length())};
-    while(i < rleLength) {
-        // comments: ignore everything until a newline
-        if (rle[i] == '#') {
-            i++;
-            while (rle[i] != '\n' && i < rleLength) {
-                i++;
-            }
-            continue;
-        }
-        
-        // ignore weird input
-        if (!isDigit(rle[i]) && rle[i] != 'b' && rle[i] != 'o' && rle[i] != '$') {
-            i++;
-            continue;
-        }
-        
-        // find coefficient or skip if not digit
+    while (i < rleLength) {
         std::string strCoefficient {""};
-        while (isDigit(rle[i]) && i < rleLength) {
+        while (i < rleLength && isDigit(rle[i])) {
             strCoefficient += rle[i];
             i++;
         }
-        int coefficient {(strCoefficient == "") ? 1 : std::stoi(strCoefficient)};
-        
-        // b: dead, o: alive, $: line
-        char type {rle[i]};
-        
-        for (int k = 0; k < coefficient; k++) {
-            if (type == 'b') {
-                result.back().push_back(false);
+        int coefficient {strCoefficient == "" ? 1 : std::stoi(strCoefficient)};
+        if (rle[i] == 'b' || rle[i] == 'o') {
+            for (int j = 0; j < coefficient; j++) {
+                result.back().push_back(rle[i] == 'o');
                 currentRowLength++;
-            } else if (type == 'o') {
-                result.back().push_back(true);
-                currentRowLength++;
-            } else if (type == '$') {
-                result.emplace_back();
-                if (currentRowLength > maxRowLength) maxRowLength = currentRowLength;
-                currentRowLength = 0;
-            } else {
-                throw std::runtime_error("RLE parser error: Cannot interpret type @" + std::string(rle.substr(std::max(0, i-20), std::min(static_cast<int>(rle.length())-1, i+20))));
             }
+        } else if (rle[i] == '$') {
+            for (int j = 0; j < coefficient; j++) {
+                result.emplace_back();
+            }
+            currentRowLength = 0;
         }
+        if (currentRowLength > maxRowLength) maxRowLength = currentRowLength;
+        i++;
     }
-    if (currentRowLength > maxRowLength) maxRowLength = currentRowLength;
+    
     for (auto& row : result) {
         row.resize(maxRowLength);
     }
@@ -660,7 +661,7 @@ void init() {
 
 int main() {
     init();
-    std::vector<std::vector<bool>> array {parseRLE("2bo$o2bo$3bo!")};
+    std::vector<std::vector<bool>> array {parseRLE("o5bob$2bo3bob$2bo2bobo$bobo!")};
     constexpr bool doPrint {0};
     auto tree {arrayToQuadTree(array)->trim()};
     printQuadTree(tree);
@@ -675,12 +676,12 @@ int main() {
         i += power2(tree->depth-1);
         tree = tree->addPadding()->evolveCenter()->trim();
         std::cout << "Generation #" << i << ":\n";
-        if (doPrint) printQuadTree(tree);
+        // printQuadTree(tree);
     }
-    std::cout << (timer.elapsed()*1000) << "ms elapsed\n";
-    //if (!doPrint) printQuadTree(tree);
+    timer.printElapsed();
+    std::cout << " elapsed\n";
+    // printQuadTree(tree);
     return 0;
 }
-
 
 
