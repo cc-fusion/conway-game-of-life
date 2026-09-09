@@ -616,13 +616,13 @@ std::vector<std::vector<bool>> parseRLE(std::string_view rle) {
         
         for (int i = 0; i < coefficient; i++) {
             if (type == 'b') {
-                result.back()
-            }
-            if (type == 'o') {
-                
-            }
-            if (type == '$') {
-                
+                result.back().emplace_back(false);
+            } else if (type == 'o') {
+                result.back().emplace_back(true);
+            } else if (type == '$') {
+                result.emplace_back();
+            } else {
+                throw std::runtime_error("RLE parser error: Cannot interpret type " + type + "@" + rle.substr(max(0,i-20),min(rle.length(),i+20)));
             }
         }
     }
