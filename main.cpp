@@ -43,49 +43,49 @@ public:
     LRU(int capacity) {
         this->capacity = capacity;
     }
-    void resize(int capacity) {
-        this->capacity = capacity;
-        while (lookupTable.size() >= capacity) {
+    void resize(int newCapacity) {
+        this->capacity = newCapacity;
+        while (lookupTable.size() > newCapacity) {
             // erase the last (used) element of the list
-            auto last {this->usedList.back()};
-            this->usedList.erase(last.first); // last.first in this context returns the key
-            this->lookupTable.pop_back();
+            auto last {usedList.back()};
+            lookupTable.erase(last.first); // last.first in this context returns the key
+            usedList.pop_back();
         }
     }
     bool contains(T_key key) const {
-        return this->lookupTable.contains(key);
+        return lookupTable.contains(key);
     }
     size_t size() const {
-        return this->lookupTable.size();
+        return lookupTable.size();
     }
     T_val at(T_key key) const {
-        return this->lookupTable.at(key)->second;
+        return lookupTable.at(key)->second;
     }
     const T_val operator[](T_key key) const {
-        return this->lookupTable.at(key)->second;
+        return lookupTable.at(key)->second;
     }
     T_val& operator[](T_key key) {
         // Case: key already exists
-        if (this->lookupTable.contains(key)) {
-            auto it {this->lookupTable.at(key)};
+        if (lookupTable.contains(key)) {
+            auto it {lookupTable.at(key)};
             // move value to most recent
-            this->usedList.splice(this->usedList.begin(), this->usedList, it);
+            usedList.splice(usedList.begin(), usedList, it);
             return it->second; // return key for writing
         }
         // Case: cache is full, evict last used item
-        if (this->lookupTable.size() >= this->capacity) {
+        if (static_cast<int>(lookupTable.size()) >= capacity) {
             // evict last used item
-            auto last {this->usedList.back()};
-            this->lookupTable.erase(last.first); // .first gives the key from the std::pair<T_key, T_val>
-            this->usedList.pop_back();
+            auto last {usedList.back()};
+            lookupTable.erase(last.first); // .first gives the key from the std::pair<T_key, T_val>
+            usedList.pop_back();
         }
         /*
         list.front returns a value
         list.begin returns a bidirectional pointer
         */
-        this->usedList.emplace_front(key, T_val{}); // T_val{} creates a default value
-        this->lookupTable[key] = this->usedList.begin();
-        return this->usedList.front().second;
+        usedList.emplace_front(key, T_val{}); // T_val{} creates a default value
+        lookupTable[key] = usedList.begin();
+        return usedList.front().second;
     }
 };
 
@@ -161,18 +161,22 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
     bool se_leaf;
     int leaf_id;
     int depth;
+    bool empty;
+    std::shared_ptr<QuadTree> evolved;
     
     QuadTree(std::shared_ptr<QuadTree> nw, std::shared_ptr<QuadTree> ne, std::shared_ptr<QuadTree> sw, std::shared_ptr<QuadTree> se) {
         assert(nw->depth == ne->depth && ne->depth == sw->depth && sw->depth == se->depth && se->depth == nw->depth && "Depths are not matching");
         this->nw = nw; this->ne = ne;
         this->sw = sw; this->se = se;
         this->depth = nw->depth + 1;
+        this->empty = nw->empty && ne->empty && sw->empty && se->empty;
     }
     QuadTree(bool nw, bool ne, bool sw, bool se) {
         this->nw_leaf = nw; this->ne_leaf = ne;
         this->sw_leaf = sw; this->se_leaf = se;
         this->depth = 1;
         this->leaf_id = nw + 2*ne + 4*sw + 8*se;
+        this->empty = !(nw || ne || sw || se);
     }
     std::shared_ptr<QuadTree> addPadding() {
         /*
@@ -204,8 +208,13 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
         return createQuadTree(nw, ne, sw, se);
     }
     std::shared_ptr<QuadTree> addPadding(int count) {
-        if (count == 1) return this->addPadding();
-        return this->addPadding(count-1);
+        assert(count > 0);
+        
+        auto tree = shared_from_this();
+        for (int i = 0; i < count; i++) {
+            tree = tree->addPadding();
+        }
+        return tree;
     }
     std::shared_ptr<QuadTree> getCenter() {
         assert(this->depth >= 2 && "Depth is not enough to find center");
@@ -248,10 +257,6 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
         return this->isLeftEmpty() && this->isRightEmpty() && this->isTopEmpty() && this->isBottomEmpty();
     }
     
-    bool isEmpty() {
-        if (this->depth == 1) return !(this->nw_leaf || this->ne_leaf || this->sw_leaf || this->se_leaf);
-        return this->nw->isEmpty() && this->ne->isEmpty() && this->sw->isEmpty() && this->se->isEmpty();
-    }
     bool isPaddingEmpty() {
         /* padding shown as P
         P P P P
@@ -266,20 +271,20 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
                      this->sw->nw_leaf/*this->sw->ne_leaf || this->se->nw_leaf*/ || this->se->ne_leaf ||
                      this->sw->sw_leaf || this->sw->se_leaf || this->se->sw_leaf || this->se->se_leaf);
         }
-        return this->nw->nw->isEmpty() && this->nw->ne->isEmpty() && this->ne->nw->isEmpty() && this->ne->ne->isEmpty() && 
-               this->nw->sw->isEmpty()/*this->nw->se->isEmpty() && this->ne->sw->isEmpty()*/ && this->ne->se->isEmpty() && 
-               this->sw->nw->isEmpty()/*this->sw->ne->isEmpty() && this->se->nw->isEmpty()*/ && this->se->ne->isEmpty() && 
-               this->sw->sw->isEmpty() && this->sw->se->isEmpty() && this->se->sw->isEmpty() && this->se->se->isEmpty();
+        return this->nw->nw->empty && this->nw->ne->empty && this->ne->nw->empty && this->ne->ne->empty && 
+               this->nw->sw->empty/*this->nw->se->empty && this->ne->sw->empty*/ && this->ne->se->empty && 
+               this->sw->nw->empty/*this->sw->ne->empty && this->se->nw->empty*/ && this->se->ne->empty && 
+               this->sw->sw->empty && this->sw->se->empty && this->se->sw->empty && this->se->se->empty;
     }
     
     std::shared_ptr<QuadTree> trim() {
         if (this->depth <= 2) {
             return shared_from_this();
         }
-        bool nwEmpty {this->nw->isEmpty()};
-        bool neEmpty {this->ne->isEmpty()};
-        bool swEmpty {this->sw->isEmpty()};
-        bool seEmpty {this->se->isEmpty()};
+        bool nwEmpty {this->nw->empty};
+        bool neEmpty {this->ne->empty};
+        bool swEmpty {this->sw->empty};
+        bool seEmpty {this->se->empty};
         if (           neEmpty && swEmpty && seEmpty) return this->nw->trim();
         if (nwEmpty &&            swEmpty && seEmpty) return this->ne->trim();
         if (nwEmpty && neEmpty &&            seEmpty) return this->sw->trim();
@@ -289,11 +294,8 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
     }
     
     std::shared_ptr<QuadTree> evolveCenter() {
-        
-        QuadTreeKey treeKey {this->nw.get(), this->ne.get(), this->sw.get(), this->se.get(), this->nw->depth};
-        
-        if (evolutionCache.contains(treeKey)) {
-            return evolutionCache[treeKey];
+        if (this->evolved) {
+            return this->evolved;
         }
         
         if (this->depth == 2) {
@@ -326,7 +328,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             /*
             (live && neighbors == 2) || neighbors == 3
             */
-            return evolutionCache[treeKey] = createQuadTree(
+            return this->evolved = createQuadTree(
                 (this->nw->se_leaf && neighbors_nw == 2) || (neighbors_nw == 3),
                 (this->ne->sw_leaf && neighbors_ne == 2) || (neighbors_ne == 3),
                 (this->sw->ne_leaf && neighbors_sw == 2) || (neighbors_sw == 3),
@@ -373,7 +375,7 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             largeAux_sw = largeAux_sw->evolveCenter();
             largeAux_se = largeAux_se->evolveCenter();
             
-            return evolutionCache[treeKey] = createQuadTree(
+            return this->evolved = createQuadTree(
                 largeAux_nw,
                 largeAux_ne,
                 largeAux_sw,
@@ -381,12 +383,6 @@ class QuadTree : public std::enable_shared_from_this<QuadTree> {
             );
         }
     }
-    /*std::shared_ptr<QuadTree> evolve() {
-        if (!this->isPaddingEmpty()) {
-            return this->addPadding()->evolve();
-        }
-        return this->addPadding()->evolveCenter();
-    }*/
 };
 
 std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> nw, const std::shared_ptr<QuadTree> ne, const std::shared_ptr<QuadTree> sw, const std::shared_ptr<QuadTree> se) {
@@ -402,6 +398,9 @@ std::shared_ptr<QuadTree> createQuadTree(bool nw, bool ne, bool sw, bool se) {
     
     return leafCache[hashedKey];
 }
+
+std::shared_ptr<QuadTree> createQuadTree(const std::shared_ptr<QuadTree> same) {return createQuadTree(same, same, same, same);}
+std::shared_ptr<QuadTree> createQuadTree(bool same) {return createQuadTree(same, same, same, same);}
 
 /* ---------- Helper Functions ---------- */
 
@@ -429,15 +428,12 @@ int power2(int x) {
 }
 
 std::shared_ptr<QuadTree> createEmptyQuadTree(int depth) {
-    if (depth == 1) {
-        return createQuadTree(false,false,false,false);
+    static std::vector<std::shared_ptr<QuadTree>> emptyTrees;
+    if (emptyTrees.empty()) emptyTrees.push_back(createQuadTree(false));
+    while (static_cast<int>(emptyTrees.size()) < depth) {
+        emptyTrees.push_back(createQuadTree(emptyTrees.back())); // emptyTrees[size-1]
     }
-    return createQuadTree(
-        createEmptyQuadTree(depth-1),
-        createEmptyQuadTree(depth-1),
-        createEmptyQuadTree(depth-1),
-        createEmptyQuadTree(depth-1)
-    );
+    return emptyTrees[depth-1];
 }
 
 std::vector<std::vector<bool>> join2x2Arrays(std::vector<std::vector<bool>>& nw, std::vector<std::vector<bool>>& ne, std::vector<std::vector<bool>>& sw, std::vector<std::vector<bool>>& se) {
@@ -574,9 +570,9 @@ void printArray(std::vector<std::vector<bool>>& array, char char_live = '#', cha
             }
         }
     }
-    // the +1 is added here for unknown reasons
-    for (int i = minRow+1; i < maxRow; i++) {
-        for (int j = minCol+1; j < maxCol; j++) {
+    
+    for (int i = minRow; i <= maxRow; i++) {
+        for (int j = minCol; j <= maxCol; j++) {
             ss << (array[i][j] ? char_live : char_dead) << " ";
         }
         ss << "\n";
@@ -629,7 +625,7 @@ int main() {
     Timer timer {};
     timer.reset();
     int i {0};
-    while (i < 600) {
+    while (i < 6000) {
         while (!tree->isPaddingEmpty()) {
             tree = tree->addPadding();
         }
@@ -642,3 +638,7 @@ int main() {
     if (!doPrint) printQuadTree(tree);
     return 0;
 }
+
+
+
+
