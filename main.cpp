@@ -593,45 +593,53 @@ std::vector<std::vector<bool>> parseRLE(std::string_view rle) {
     // very inefficient rough parser, allows comments and ignores unknown characters
     int i {0};
     std::vector<std::vector<bool>> result;
-    int maxRowLen {0};
-    while(i < rle.length()) {
+    result.emplace_back();
+    int maxRowLength {0};
+    int currentRowLength {0};
+    int rleLength {static_cast<int>(rle.length())};
+    while(i < rleLength) {
         if (rle[i] == '#') { // comment: ignore everything until a newline
-            while (rle[i] != '\n' && i < rle.length()) {
+            i++;
+            while (rle[i] != '\n' && i < rleLength) {
                 i++;
             }
             continue;
+        } else if (!isDigit(rle[i])) { // ignore weird input
+            i++;
+            continue;
         }
-        if (!isDigit(rle[i])) continue; // not implementing this
         
         std::string strCoefficient {""};
-        while (isDigit(rle[i])) {
+        while (isDigit(rle[i]) && i < rleLength) {
             strCoefficient += rle[i];
             i++;
         }
-        int coefficient {std::stoi(strCoefficient)};
-        while (rle[i] != 'b' || rle[i] != 'o' || rle[i] != '$') {
-            i++; // ignore possible newlines
+        int coefficient {(strCoefficient == "") ? 1 : std::stoi(strCoefficient)};
+        while (rle[i] == ' ' || rle[i] == '\n' || rle[i] == '\r') {
+            i++; // ignore whitespace
         }
         // b: dead, o: alive, $: line
         char type {rle[i]};
         
         for (int k = 0; k < coefficient; k++) {
             if (type == 'b') {
-                result.back().emplace_back(false);
-                maxRowLength++;
+                result.back().push_back(false);
+                currentRowLength++;
             } else if (type == 'o') {
-                result.back().emplace_back(true);
-                maxRowLength++;
+                result.back().push_back(true);
+                currentRowLength++;
             } else if (type == '$') {
                 result.emplace_back();
-                maxRowLength = 0;
+                if (currentRowLength > maxRowLength) maxRowLength = currentRowLength;
+                currentRowLength = 0;
             } else {
                 throw std::runtime_error("RLE parser error: Cannot interpret type @" + std::string(rle.substr(std::max(0, i-20), std::min(static_cast<int>(rle.length())-1, i+20))));
             }
         }
     }
+    if (currentRowLength > maxRowLength) maxRowLength = currentRowLength;
     for (auto& row : result) {
-        maxRowLen - static_cast<int>(row.size())
+        row.resize(maxRowLength);
     }
     return result;
 }
@@ -649,26 +657,9 @@ void init() {
 
 int main() {
     init();
-    std::vector<std::vector<bool>> array {{
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0}, 
-        {0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0},
-        {0,0,0,0,0,1,1,0,0,1,1,1,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-        {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    }};
+    std::vector<std::vector<bool>> array {parseRLE("2bo$o2bo$3bo!")};
     constexpr bool doPrint {0};
-    auto tree = arrayToQuadTree(array)->trim();
+    auto tree {arrayToQuadTree(array)->trim()};
     printQuadTree(tree);
     
     Timer timer {};
