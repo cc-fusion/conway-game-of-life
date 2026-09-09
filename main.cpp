@@ -593,6 +593,7 @@ std::vector<std::vector<bool>> parseRLE(std::string_view rle) {
     // very inefficient rough parser, allows comments and ignores unknown characters
     int i {0};
     std::vector<std::vector<bool>> result;
+    int maxRowLen {0};
     while(i < rle.length()) {
         if (rle[i] == '#') { // comment: ignore everything until a newline
             while (rle[i] != '\n' && i < rle.length()) {
@@ -614,18 +615,25 @@ std::vector<std::vector<bool>> parseRLE(std::string_view rle) {
         // b: dead, o: alive, $: line
         char type {rle[i]};
         
-        for (int i = 0; i < coefficient; i++) {
+        for (int k = 0; k < coefficient; k++) {
             if (type == 'b') {
                 result.back().emplace_back(false);
+                maxRowLength++;
             } else if (type == 'o') {
                 result.back().emplace_back(true);
+                maxRowLength++;
             } else if (type == '$') {
                 result.emplace_back();
+                maxRowLength = 0;
             } else {
-                throw std::runtime_error("RLE parser error: Cannot interpret type " + type + "@" + rle.substr(max(0,i-20),min(rle.length(),i+20)));
+                throw std::runtime_error("RLE parser error: Cannot interpret type @" + std::string(rle.substr(std::max(0, i-20), std::min(static_cast<int>(rle.length())-1, i+20))));
             }
         }
     }
+    for (auto& row : result) {
+        maxRowLen - static_cast<int>(row.size())
+    }
+    return result;
 }
 
 /* ---------- Init -----------*/
@@ -679,7 +687,6 @@ int main() {
     //if (!doPrint) printQuadTree(tree);
     return 0;
 }
-
 
 
 
