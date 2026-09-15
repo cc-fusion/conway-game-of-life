@@ -64,6 +64,7 @@ class QuadTree {
       this.neHash = ne?1:0
       this.swHash = sw?1:0
       this.seHash = se?1:0
+      this.empty = (!nw) && (!ne) && (!sw) && (!se)
       if (this.depth != 1) throw "Depth is not 1 but nw is boolean"
     } else {
       this.nwHash = nw
@@ -71,6 +72,7 @@ class QuadTree {
       this.swHash = sw
       this.seHash = se
     }
+    this.empty = this.nw.empty && this.ne.empty && this.sw.empty && this.se.empty
     this.depth = depth
     this.hash = hashQuadTree(this.nwHash, this.neHash, this.swHash, this.seHash)
   }
@@ -83,7 +85,14 @@ class QuadTree {
   set ne() {throw "THIS SHOULD NOT HAPPEN"}
   set sw() {throw "THIS SHOULD NOT HAPPEN"}
   set se() {throw "THIS SHOULD NOT HAPPEN"}
+
+  static function makeTree(nw, ne, sw, se) {
+    let hash = hashQuadTree(nw, ne, sw, se)
+    if (quadTreeCache[hash]) {
+      return quadTreeCache[hash]
+    } else {
+      return quadTreeCache[hash] = new QuadTree(nw, ne, sw, se)
+    }
+  }
 }
-
-
 </script>
