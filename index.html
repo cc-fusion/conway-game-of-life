@@ -1,0 +1,89 @@
+<script>
+
+// Source - https://stackoverflow.com/a/7616484
+// Posted by esmiralha, modified by community. See post 'Timeline' for change history
+// Retrieved 2026-09-15, License - CC BY-SA 4.0
+
+const generateHash = (string) => {
+  let hash = 0;
+  for (const char of string) {
+    hash = (hash << 5) - hash + char.charCodeAt(0);
+    hash |= 0; // Constrain to 32bit integer
+  }
+  return hash;
+};
+
+
+class LRU {
+  constructor(capacity) {
+    this.capacity = capacity
+    this.cache = new Map()
+    return new Proxy(this, {
+      get(target, prop, receiver) {
+        if (prop in target && prop != "cache") {
+          return Reflect.get(target, prop, receiver)
+        }
+        if (!target.cache.has(prop)) return
+        let val = target.cache.get(prop)
+        target.cache.delete(prop)
+        target.cache.set(prop, val)
+        return val
+      },
+      set(obj, prop, value) {
+        if (prop == "capacity") {
+          if (value <= 0) throw "Invalid capacity"
+          obj[prop] = value
+          obj.trimToCapacity()
+          return true
+        }
+        if (obj.cache.has(prop)) obj.cache.delete(prop)
+        obj.cache.set(prop, value)
+        obj.trimToCapacity()
+        return true
+      }
+    })
+  }
+  trimToCapacity() {
+    while (this.cache.size > this.capacity) this.cache.delete(this.cache.keys().next().value)
+  }
+}
+
+let quadTreeCache = {
+  0: false,
+  1: true
+}
+
+function hashQuadTree(nwHash, neHash, swHash, seHash) {
+  generateHash(generateHash(nwHash+"."+neHash+"."+swHash+"."+seHash))
+}
+
+class QuadTree {
+  constructor (nw, ne, sw, se, depth) {
+    if (typeof nw == "boolean") {
+      this.nwHash = nw?1:0
+      this.neHash = ne?1:0
+      this.swHash = sw?1:0
+      this.seHash = se?1:0
+      if (this.depth != 1) throw "Depth is not 1 but nw is boolean"
+    } else {
+      this.nwHash = nw
+      this.neHash = ne
+      this.swHash = sw
+      this.seHash = se
+    }
+    this.depth = depth
+    this.hash = hashQuadTree(this.nwHash, this.neHash, this.swHash, this.seHash)
+  }
+  get nw() {return hashQuadTree[this.nwHash]}
+  get ne() {return hashQuadTree[this.neHash]}
+  get sw() {return hashQuadTree[this.swHash]}
+  get se() {return hashQuadTree[this.seHash]}
+
+  set nw() {throw "THIS SHOULD NOT HAPPEN"}
+  set ne() {throw "THIS SHOULD NOT HAPPEN"}
+  set sw() {throw "THIS SHOULD NOT HAPPEN"}
+  set se() {throw "THIS SHOULD NOT HAPPEN"}
+}
+
+
+</script>
